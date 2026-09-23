@@ -16,7 +16,7 @@ It adds two rules to Windows Firewall that block the ME6 server addresses. It do
    - If Windows shows *"Windows protected your PC"*, click **More info → Run anyway**. The warning appears because the tool isn't code-signed. All the code is in this repo if you want to check it.
 4. Click **Yes** when Windows asks for permission. Changing firewall rules needs administrator rights.
 
-You'll get an **RL ME Blocker** shortcut on your Desktop and in the Start menu.
+You'll get an **RL ME Blocker** shortcut on your Desktop and in the Start menu. The app is copied to `%LOCALAPPDATA%\RL-ME-Blocker`, so **you can delete the zip and the extracted folder afterwards**.
 
 <details>
 <summary>Prefer one command? (PowerShell)</summary>
@@ -33,12 +33,13 @@ irm https://raw.githubusercontent.com/bassam-2023/rl-me-blocker/main/src/install
 - **Switch before you queue.** The server is chosen when the match starts, so switching mid-match does nothing.
 - The Desktop icon changes to show the current state: an orange lock means blocked, a blue open lock means allowed.
 - The **ع / EN** button in the title bar switches between Arabic and English.
+- **Arabic font:** if the free [Thmanyah Sans (ثمانية)](https://font.thmanyah.com) font is installed, the Arabic interface uses it. Otherwise it uses Segoe UI. Its license doesn't allow bundling the font, so download it from the official site.
 
 The block stays on until you switch it off, including after a restart.
 
 ## Uninstall
 
-Go to **Settings → Apps**, find **RL ME Blocker**, and click **Uninstall**. You can also double-click `Uninstall.cmd` in the extracted folder.
+Go to **Settings → Apps**, find **RL ME Blocker**, and click **Uninstall**. If you still have the extracted folder, you can also double-click `Uninstall.cmd` in it.
 
 Either way, the firewall rules, shortcuts and files are all removed.
 

@@ -5,7 +5,7 @@
 #  https://github.com/bassam-2023/rl-me-blocker
 # =====================================================================
 
-$AppVersion = '1.0.0'
+$AppVersion = '1.1.0'
 $RepoUrl    = 'https://github.com/bassam-2023/rl-me-blocker'
 $RemoteUrl  = 'https://raw.githubusercontent.com/bassam-2023/rl-me-blocker/main/ranges.json'
 
@@ -107,13 +107,14 @@ $Strings = @{
         Outbound    = 'Outbound'; Inbound    = 'Inbound'
         RuleOn      = 'Blocking'; RuleOff    = 'Open'
         SyncNote    = "Windows didn't save this to disk, so it may reset after a restart. If it does, just switch it again."
-        Hint        = 'Switch before you queue - the server is picked at match start.'
+        Hint        = 'Switch before you queue - the server is set at match start.'
         ErrPrepare  = "Couldn't prepare firewall rules: {0}"
         ErrRead     = "Couldn't read firewall state: {0}"
         ErrApply    = "Windows Firewall didn't apply the change. Try again, or restart the app."
         WarnThirdParty = '{0} is managing your firewall, so this block may not work. Use its own settings, or turn Windows Firewall back on.'
         WarnOff     = 'Windows Firewall is turned off for this network, so blocking has no effect. Turn it on in Windows Security > Firewall.'
         Update      = 'Update available: v{0} - click to download'
+        Synced      = 'Up to date'
     }
     ar = @{
         WindowTitle = 'حاجب سيرفرات ME'
@@ -138,6 +139,7 @@ $Strings = @{
         WarnThirdParty = 'برنامج {0} يتحكم في الجدار الناري، لذلك قد لا يعمل الحظر. استخدم إعداداته، أو أعد تشغيل جدار حماية ويندوز.'
         WarnOff     = 'جدار حماية ويندوز متوقف على هذه الشبكة، لذلك الحظر لن يعمل. شغّله من أمان Windows > جدار الحماية.'
         Update      = 'يتوفر تحديث: v{0} - اضغط للتحميل'
+        Synced      = 'محدّثة'
     }
 }
 
@@ -218,23 +220,63 @@ function Get-FirewallWarning {
 [xml]$xaml = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="RL ME Blocker" Width="420" SizeToContent="Height" WindowStartupLocation="CenterScreen"
+        Title="RL ME Blocker" Width="424" SizeToContent="Height" WindowStartupLocation="CenterScreen"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent" ResizeMode="CanMinimize"
-        FontFamily="Segoe UI" SnapsToDevicePixels="True" UseLayoutRounding="True">
+        FontFamily="Segoe UI Variable Display, Segoe UI" SnapsToDevicePixels="True" UseLayoutRounding="True">
   <Window.Resources>
     <Style x:Key="Chrome" TargetType="Button">
-      <Setter Property="Foreground" Value="#8A96AD"/>
+      <Setter Property="Foreground" Value="#7D89A1"/>
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Focusable" Value="False"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Button">
-            <Border x:Name="B" Background="{TemplateBinding Background}" CornerRadius="8" Width="34" Height="30">
+            <Border x:Name="B" Background="{TemplateBinding Background}" CornerRadius="8" Width="32" Height="30">
               <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="B" Property="Background" Value="#222B40"/>
+                <Setter TargetName="B" Property="Background" Value="#1C2438"/>
+                <Setter Property="Foreground" Value="#EAF0FA"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="CloseBtn" TargetType="Button" BasedOn="{StaticResource Chrome}">
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="B" Background="Transparent" CornerRadius="8" Width="32" Height="30">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="B" Property="Background" Value="#C4314B"/>
+                <Setter Property="Foreground" Value="#FFFFFF"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="Pill" TargetType="Button">
+      <Setter Property="Foreground" Value="#A9B4C9"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Focusable" Value="False"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="B" Background="#121929" BorderBrush="#26304A" BorderThickness="1" CornerRadius="8"
+                    MinWidth="34" Height="26" Padding="9,0" Margin="0,0,6,0">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="B" Property="BorderBrush" Value="#3A4766"/>
+                <Setter TargetName="B" Property="Background" Value="#1A2235"/>
                 <Setter Property="Foreground" Value="#EAF0FA"/>
               </Trigger>
             </ControlTemplate.Triggers>
@@ -245,141 +287,200 @@ function Get-FirewallWarning {
     <Style x:Key="Seg" TargetType="Button">
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Focusable" Value="False"/>
       <Setter Property="FontSize" Value="15"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Button">
-            <Border Background="Transparent">
+            <Border x:Name="B" Background="Transparent" CornerRadius="11" RenderTransformOrigin="0.5,0.5">
               <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="B" Property="Background" Value="#0FFFFFFF"/>
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="B" Property="RenderTransform">
+                  <Setter.Value><ScaleTransform ScaleX="0.96" ScaleY="0.96"/></Setter.Value>
+                </Setter>
+              </Trigger>
+            </ControlTemplate.Triggers>
           </ControlTemplate>
         </Setter.Value>
       </Setter>
     </Style>
+    <Style x:Key="Link" TargetType="TextBlock">
+      <Setter Property="Cursor" Value="Hand"/>
+      <Style.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter Property="TextDecorations" Value="Underline"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
   </Window.Resources>
 
-  <Grid x:Name="Root" Margin="16">
-    <Border CornerRadius="18" Background="#0E131F">
-      <Border.Effect><DropShadowEffect BlurRadius="22" ShadowDepth="0" Opacity="0.55" Color="#000000"/></Border.Effect>
+  <Grid x:Name="Root" Margin="18" Opacity="0">
+    <Grid.RenderTransform><TranslateTransform x:Name="RootShift" Y="14"/></Grid.RenderTransform>
+
+    <!-- Shadow -->
+    <Border CornerRadius="20" Background="#0B0F19">
+      <Border.Effect><DropShadowEffect BlurRadius="26" ShadowDepth="0" Opacity="0.6" Color="#000000"/></Border.Effect>
     </Border>
-    <Border CornerRadius="18" BorderBrush="#1F2940" BorderThickness="1" ClipToBounds="True">
+
+    <Border x:Name="Card" CornerRadius="20" BorderBrush="#1E2740" BorderThickness="1">
       <Border.Background>
         <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-          <GradientStop Color="#141B2B" Offset="0"/>
-          <GradientStop Color="#0E131F" Offset="1"/>
+          <GradientStop Color="#131A29" Offset="0"/>
+          <GradientStop Color="#0C111C" Offset="1"/>
         </LinearGradientBrush>
       </Border.Background>
       <Grid>
         <Grid.RowDefinitions>
-          <RowDefinition Height="48"/>
+          <RowDefinition Height="52"/>
           <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
+        <!-- Glow in the state color behind the orb -->
+        <Ellipse x:Name="Glow" Grid.RowSpan="2" Width="380" Height="260" VerticalAlignment="Top"
+                 Margin="0,-40,0,0" Opacity="0.16" IsHitTestVisible="False"/>
+
         <!-- Title bar -->
-        <Grid x:Name="TitleBar" Background="Transparent" Margin="18,0,8,0">
+        <Grid x:Name="TitleBar" Background="Transparent" Margin="16,0,10,0">
           <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-            <Border Width="10" Height="10" CornerRadius="2" Background="#3B9BFF" Margin="0,0,3,0"/>
-            <Border Width="10" Height="10" CornerRadius="2" Background="#FF8A2F" Margin="0,0,10,0"/>
-            <TextBlock x:Name="TxtAppName" Foreground="#EAF0FA" FontWeight="Bold" FontSize="12"/>
-            <TextBlock Text="&#x00B7;" Foreground="#5C6780" FontSize="12" Margin="8,0,8,0"/>
-            <TextBlock Text="Rocket League" Foreground="#5C6780" FontSize="12"/>
+            <Border x:Name="Badge" Width="24" Height="24" CornerRadius="7" Margin="0,0,10,0">
+              <TextBlock x:Name="BadgeGlyph" FontFamily="Segoe MDL2 Assets" FontSize="11" Foreground="#0A0E17"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock x:Name="TxtAppName" Foreground="#EAF0FA" FontWeight="Bold" FontSize="12.5"/>
+              <TextBlock Text="Rocket League" Foreground="#5C6780" FontSize="10.5" Margin="0,-1,0,0"/>
+            </StackPanel>
           </StackPanel>
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-            <Button x:Name="BtnLang" Style="{StaticResource Chrome}">
+            <Button x:Name="BtnLang" Style="{StaticResource Pill}">
               <TextBlock x:Name="TxtLang" FontSize="12" FontWeight="SemiBold"/>
             </Button>
             <Button x:Name="BtnMin" Style="{StaticResource Chrome}">
               <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
             </Button>
-            <Button x:Name="BtnClose" Style="{StaticResource Chrome}">
+            <Button x:Name="BtnClose" Style="{StaticResource CloseBtn}">
               <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
             </Button>
           </StackPanel>
         </Grid>
 
-        <StackPanel Grid.Row="1" Margin="26,4,26,22">
+        <StackPanel Grid.Row="1" Margin="24,0,24,20">
           <!-- Status orb -->
-          <Grid Width="156" Height="156" Margin="0,10,0,0" HorizontalAlignment="Center">
-            <Ellipse x:Name="Halo" Width="156" Height="156" Opacity="0.18"/>
-            <Ellipse x:Name="Ring" Width="124" Height="124" StrokeThickness="2.5" Fill="#0B101A"/>
-            <TextBlock x:Name="Glyph" FontFamily="Segoe MDL2 Assets" FontSize="46"
+          <Grid Width="180" Height="180" Margin="0,4,0,0" HorizontalAlignment="Center">
+            <Ellipse x:Name="Halo" Width="150" Height="150" Opacity="0.22"/>
+            <Ellipse x:Name="Pulse" Width="128" Height="128" StrokeThickness="2" Opacity="0" RenderTransformOrigin="0.5,0.5"/>
+            <Ellipse x:Name="Ring" Width="128" Height="128" StrokeThickness="3">
+              <Ellipse.Fill>
+                <RadialGradientBrush GradientOrigin="0.5,0.3">
+                  <GradientStop Color="#18202F" Offset="0"/>
+                  <GradientStop Color="#0A0E17" Offset="1"/>
+                </RadialGradientBrush>
+              </Ellipse.Fill>
+            </Ellipse>
+            <Ellipse Width="112" Height="112" Stroke="#FFFFFF" StrokeThickness="1" Opacity="0.05"/>
+            <TextBlock x:Name="Glyph" FontFamily="Segoe MDL2 Assets" FontSize="48"
                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Grid>
 
-          <TextBlock x:Name="StatusTitle" FontSize="30" FontWeight="Black" HorizontalAlignment="Center" Margin="0,16,0,0"/>
+          <TextBlock x:Name="StatusTitle" FontSize="32" FontWeight="Black" HorizontalAlignment="Center" Margin="0,6,0,0"/>
           <TextBlock x:Name="StatusSub" FontSize="13" Foreground="#8A96AD" TextAlignment="Center"
-                     TextWrapping="Wrap" HorizontalAlignment="Center" Margin="10,4,10,0" MinHeight="36"/>
+                     TextWrapping="Wrap" HorizontalAlignment="Center" Margin="10,2,10,0" MinHeight="36"/>
 
           <!-- Allow / Block switch -->
-          <Border x:Name="Switch" Height="56" CornerRadius="14" Background="#0A0E17" BorderBrush="#1F2940"
-                  BorderThickness="1" Padding="5" Margin="0,20,0,0">
+          <Border x:Name="Switch" Height="58" CornerRadius="16" Background="#090D16" BorderBrush="#1E2740"
+                  BorderThickness="1" Padding="5" Margin="0,18,0,0">
             <Grid x:Name="SwitchGrid">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition/>
                 <ColumnDefinition/>
               </Grid.ColumnDefinitions>
-              <Border x:Name="Thumb" CornerRadius="10"/>
+              <Border x:Name="Thumb" CornerRadius="11">
+                <Border.Effect><DropShadowEffect x:Name="ThumbGlow" BlurRadius="18" ShadowDepth="0" Opacity="0.45"/></Border.Effect>
+              </Border>
               <Button x:Name="BtnAllow" Grid.Column="0" Style="{StaticResource Seg}">
                 <StackPanel Orientation="Horizontal">
-                  <TextBlock Text="&#xE785;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                  <TextBlock x:Name="TxtAllow"/>
+                  <TextBlock Text="&#xE785;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" Margin="0,0,9,0"/>
+                  <TextBlock x:Name="TxtAllow" VerticalAlignment="Center"/>
                 </StackPanel>
               </Button>
               <Button x:Name="BtnBlock" Grid.Column="1" Style="{StaticResource Seg}">
                 <StackPanel Orientation="Horizontal">
-                  <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                  <TextBlock x:Name="TxtBlock"/>
+                  <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" Margin="0,0,9,0"/>
+                  <TextBlock x:Name="TxtBlock" VerticalAlignment="Center"/>
                 </StackPanel>
               </Button>
             </Grid>
           </Border>
 
           <!-- Firewall warning banner -->
-          <Border x:Name="WarnBox" Visibility="Collapsed" CornerRadius="10" Background="#2A2115"
-                  BorderBrush="#5A4423" BorderThickness="1" Padding="12,9" Margin="0,12,0,0">
-            <TextBlock x:Name="WarnText" Foreground="#E0A95A" FontSize="12" TextWrapping="Wrap"/>
+          <Border x:Name="WarnBox" Visibility="Collapsed" CornerRadius="12" Background="#261E12"
+                  BorderBrush="#5A4423" BorderThickness="1" Padding="12,10" Margin="0,12,0,0">
+            <DockPanel>
+              <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" Foreground="#E0A95A" FontSize="13"
+                         DockPanel.Dock="Left" Margin="0,1,10,0"/>
+              <TextBlock x:Name="WarnText" Foreground="#E8B872" FontSize="12" TextWrapping="Wrap"/>
+            </DockPanel>
           </Border>
 
           <!-- Error banner -->
-          <Border x:Name="ErrorBox" Visibility="Collapsed" CornerRadius="10" Background="#2A1520"
-                  BorderBrush="#5A2334" BorderThickness="1" Padding="12,9" Margin="0,12,0,0">
-            <TextBlock x:Name="ErrorText" Foreground="#FF9DB0" FontSize="12" TextWrapping="Wrap"/>
+          <Border x:Name="ErrorBox" Visibility="Collapsed" CornerRadius="12" Background="#28131D"
+                  BorderBrush="#5A2334" BorderThickness="1" Padding="12,10" Margin="0,12,0,0">
+            <DockPanel>
+              <TextBlock Text="&#xEA39;" FontFamily="Segoe MDL2 Assets" Foreground="#FF9DB0" FontSize="13"
+                         DockPanel.Dock="Left" Margin="0,1,10,0"/>
+              <TextBlock x:Name="ErrorText" Foreground="#FF9DB0" FontSize="12" TextWrapping="Wrap"/>
+            </DockPanel>
           </Border>
 
           <!-- Details card -->
-          <Border CornerRadius="14" Background="#121827" BorderBrush="#1F2940" BorderThickness="1"
-                  Padding="16,14" Margin="0,14,0,0">
+          <Border CornerRadius="16" Background="#0F1522" BorderBrush="#1E2740" BorderThickness="1"
+                  Padding="16,14,16,16" Margin="0,14,0,0">
             <StackPanel>
-              <TextBlock x:Name="TxtRangesHdr" Foreground="#5C6780" FontSize="10.5" FontWeight="Bold"/>
-              <WrapPanel x:Name="Ranges" Margin="0,8,0,0"/>
-              <Border Height="1" Background="#1F2940" Margin="0,12,0,12"/>
               <Grid>
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition/>
-                  <ColumnDefinition/>
-                </Grid.ColumnDefinitions>
-                <StackPanel Orientation="Horizontal">
-                  <Ellipse x:Name="DotOut" Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                  <TextBlock x:Name="LblOut" Foreground="#8A96AD" FontSize="12.5" Margin="0,0,4,0"/>
-                  <TextBlock x:Name="TxtOut" Foreground="#EAF0FA" FontSize="12.5" FontWeight="SemiBold"/>
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                  <Ellipse x:Name="DotIn" Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                  <TextBlock x:Name="LblIn" Foreground="#8A96AD" FontSize="12.5" Margin="0,0,4,0"/>
-                  <TextBlock x:Name="TxtIn" Foreground="#EAF0FA" FontSize="12.5" FontWeight="SemiBold"/>
+                <TextBlock x:Name="TxtRangesHdr" Foreground="#5C6780" FontSize="10.5" FontWeight="Bold" VerticalAlignment="Center"/>
+                <StackPanel x:Name="Synced" Orientation="Horizontal" HorizontalAlignment="Right" Visibility="Collapsed">
+                  <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" Foreground="#4CC38A" FontSize="10"
+                             VerticalAlignment="Center" Margin="0,0,5,0"/>
+                  <TextBlock x:Name="TxtSynced" Foreground="#4CC38A" FontSize="10.5" FontWeight="SemiBold"/>
                 </StackPanel>
               </Grid>
+              <WrapPanel x:Name="Ranges" Margin="0,10,0,4"/>
+              <UniformGrid Columns="2" Margin="0,6,0,0">
+                <Border CornerRadius="11" Background="#0B101B" BorderBrush="#1B2336" BorderThickness="1" Padding="12,9" Margin="0,0,4,0">
+                  <StackPanel>
+                    <TextBlock x:Name="LblOut" Foreground="#5C6780" FontSize="11"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                      <Ellipse x:Name="DotOut" Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                      <TextBlock x:Name="TxtOut" Foreground="#EAF0FA" FontSize="13" FontWeight="SemiBold"/>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+                <Border CornerRadius="11" Background="#0B101B" BorderBrush="#1B2336" BorderThickness="1" Padding="12,9" Margin="4,0,0,0">
+                  <StackPanel>
+                    <TextBlock x:Name="LblIn" Foreground="#5C6780" FontSize="11"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                      <Ellipse x:Name="DotIn" Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                      <TextBlock x:Name="TxtIn" Foreground="#EAF0FA" FontSize="13" FontWeight="SemiBold"/>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+              </UniformGrid>
               <TextBlock x:Name="SyncNote" Visibility="Collapsed" Margin="0,12,0,0" FontSize="11.5" Foreground="#E0A95A"
                          TextWrapping="Wrap"/>
             </StackPanel>
           </Border>
 
-          <TextBlock Foreground="#5C6780" FontSize="11.5" TextWrapping="Wrap" TextAlignment="Center" Margin="0,16,0,0">
-            <Run Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="12"/><Run Text="  "/><Run x:Name="TxtHint"/>
+          <TextBlock Foreground="#5C6780" FontSize="11" TextWrapping="Wrap" TextAlignment="Center" Margin="0,16,0,0">
+            <Run Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="11"/><Run Text="  "/><Run x:Name="TxtHint"/>
           </TextBlock>
-          <TextBlock x:Name="TxtUpdate" Visibility="Collapsed" Foreground="#3B9BFF" FontSize="11.5" FontWeight="SemiBold"
-                     Cursor="Hand" TextAlignment="Center" Margin="0,8,0,0"/>
+          <TextBlock x:Name="TxtUpdate" Style="{StaticResource Link}" Visibility="Collapsed" Foreground="#5AADFF"
+                     FontSize="11.5" FontWeight="SemiBold" TextAlignment="Center" Margin="0,8,0,0"/>
         </StackPanel>
       </Grid>
     </Border>
@@ -389,9 +490,10 @@ function Get-FirewallWarning {
 
 $window = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
 $ui = @{}
-foreach ($n in 'Root','TitleBar','BtnLang','TxtLang','BtnMin','BtnClose','TxtAppName','Halo','Ring','Glyph','StatusTitle',
-               'StatusSub','Switch','Thumb','BtnAllow','BtnBlock','TxtAllow','TxtBlock','WarnBox','WarnText','ErrorBox',
-               'ErrorText','TxtRangesHdr','Ranges','DotOut','DotIn','LblOut','LblIn','TxtOut','TxtIn','SyncNote',
+foreach ($n in 'Root','RootShift','Card','Glow','TitleBar','Badge','BadgeGlyph','BtnLang','TxtLang','BtnMin','BtnClose',
+               'TxtAppName','Halo','Pulse','Ring','Glyph','StatusTitle','StatusSub','Switch','Thumb','ThumbGlow',
+               'BtnAllow','BtnBlock','TxtAllow','TxtBlock','WarnBox','WarnText','ErrorBox','ErrorText','TxtRangesHdr',
+               'Synced','TxtSynced','Ranges','DotOut','DotIn','LblOut','LblIn','TxtOut','TxtIn','SyncNote',
                'TxtHint','TxtUpdate') {
     $ui[$n] = $window.FindName($n)
 }
@@ -409,6 +511,31 @@ $States = @{
 $script:lastStatus = 'Off'
 $script:busy = $false
 $script:updateVersion = $null
+$script:synced = $false
+$script:pulseOn = $null
+
+# ---- Fonts ----------------------------------------------------------------
+# Arabic uses the Thmanyah Sans typeface when it's installed (its license doesn't allow
+# shipping the files, so users get it from https://font.thmanyah.com). Fonts installed
+# "for this user only" live outside C:\Windows\Fonts, so the family is loaded from the
+# folder that holds it.
+$LatinFont = New-Object Windows.Media.FontFamily 'Segoe UI Variable Display, Segoe UI'
+
+function Find-ArabicFont {
+    foreach ($dir in (Join-Path $env:WINDIR 'Fonts'), (Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\Fonts')) {
+        $file = Get-ChildItem -LiteralPath $dir -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match 'thmanyah' -and $_.Name -match 'sans' -and $_.Extension -in '.otf', '.ttf' } |
+                Select-Object -First 1
+        if (-not $file) { continue }
+        try {
+            $name = @(@([Windows.Media.Fonts]::GetFontFamilies($file.FullName))[0].FamilyNames.Values)[0]
+            if (-not $name) { continue }
+            return New-Object Windows.Media.FontFamily ([Uri]('file:///' + ($dir -replace '\\', '/') + '/')), "./#$name"
+        } catch { }
+    }
+    New-Object Windows.Media.FontFamily 'Segoe UI'
+}
+$ArabicFont = Find-ArabicFont
 
 # ---- Status icons -------------------------------------------------------
 # The taskbar icon and the shortcut icons follow the status. Each state is drawn
@@ -500,25 +627,37 @@ function Update-ShortcutIcon([string]$status, [string[]]$SearchDirs = $ShortcutD
 
 # One shared accent brush, animated between state colors
 $accent = New-Brush '#3B9BFF'
-$ui.Halo.Fill = $accent; $ui.Ring.Stroke = $accent; $ui.Glyph.Foreground = $accent
-$ui.StatusTitle.Foreground = $accent; $ui.Thumb.Background = $accent
+$ui.Halo.Fill = $accent; $ui.Ring.Stroke = $accent; $ui.Glyph.Foreground = $accent; $ui.Pulse.Stroke = $accent
+$ui.StatusTitle.Foreground = $accent; $ui.Thumb.Background = $accent; $ui.Badge.Background = $accent; $ui.Glow.Fill = $accent
 $ui.Halo.Effect = New-Object Windows.Media.Effects.BlurEffect
-$ui.Halo.Effect.Radius = 20
+$ui.Halo.Effect.Radius = 28
+$ui.Glow.Effect = New-Object Windows.Media.Effects.BlurEffect
+$ui.Glow.Effect.Radius = 90
 $thumbX = New-Object Windows.Media.TranslateTransform
 $ui.Thumb.RenderTransform = $thumbX
+$pulseScale = New-Object Windows.Media.ScaleTransform 1, 1
+$ui.Pulse.RenderTransform = $pulseScale
+
+# Clip the card (and the glow inside it) to its rounded corners
+$ui.Card.Add_SizeChanged({
+    $r = New-Object Windows.Rect 0, 0, $ui.Card.ActualWidth, $ui.Card.ActualHeight
+    $ui.Card.Clip = New-Object Windows.Media.RectangleGeometry $r, 20, 20
+})
 
 function Show-Ranges {
     $ui.Ranges.Children.Clear()
     foreach ($c in $Cidrs) {
         $chip = New-Object Windows.Controls.Border
-        $chip.CornerRadius = New-Object Windows.CornerRadius 7
-        $chip.Background = New-Brush '#1A2236'
+        $chip.CornerRadius = New-Object Windows.CornerRadius 8
+        $chip.Background = New-Brush '#161E30'
+        $chip.BorderBrush = New-Brush '#212B42'
+        $chip.BorderThickness = New-Object Windows.Thickness 1
         $chip.Padding = New-Object Windows.Thickness 9, 4, 9, 4
         $chip.Margin = New-Object Windows.Thickness 0, 0, 6, 6
         $chip.FlowDirection = 'LeftToRight'   # keep "/16" on the right in Arabic
         $tb = New-Object Windows.Controls.TextBlock
         $tb.Text = $c
-        $tb.FontFamily = New-Object Windows.Media.FontFamily 'Consolas'
+        $tb.FontFamily = New-Object Windows.Media.FontFamily 'Cascadia Mono, Consolas'
         $tb.FontSize = 12
         $tb.Foreground = New-Brush '#C5CFE0'
         $chip.Child = $tb
@@ -526,10 +665,10 @@ function Show-Ranges {
     }
 }
 
-function New-Anim($type, $to) {
+function New-Anim($type, $to, [int]$ms = 280) {
     $a = New-Object "Windows.Media.Animation.$type"
     $a.To = $to
-    $a.Duration = [Windows.Duration][TimeSpan]::FromMilliseconds(280)
+    $a.Duration = [Windows.Duration][TimeSpan]::FromMilliseconds($ms)
     $ease = New-Object Windows.Media.Animation.CubicEase
     $ease.EasingMode = 'EaseOut'
     $a.EasingFunction = $ease
@@ -540,6 +679,29 @@ function Move-Thumb([string]$status) {
     $x = if ($status -eq 'On') { $ui.Thumb.ActualWidth } else { 0 }
     $thumbX.BeginAnimation([Windows.Media.TranslateTransform]::XProperty, (New-Anim DoubleAnimation ([double]$x)))
     $ui.Thumb.Opacity = if ($status -in 'On', 'Off') { 1 } else { 0 }
+}
+
+# While blocked, a ring keeps rippling out of the orb
+function Set-Pulse([bool]$on) {
+    if ($on -eq $script:pulseOn) { return }
+    $script:pulseOn = $on
+    $scaleP = [Windows.Media.ScaleTransform]::ScaleXProperty, [Windows.Media.ScaleTransform]::ScaleYProperty
+    if ($on) {
+        foreach ($p in $scaleP) {
+            $a = New-Anim DoubleAnimation 1.38 2200
+            $a.From = 1.0
+            $a.RepeatBehavior = [Windows.Media.Animation.RepeatBehavior]::Forever
+            $pulseScale.BeginAnimation($p, $a)
+        }
+        $fade = New-Anim DoubleAnimation 0.0 2200
+        $fade.From = 0.55
+        $fade.RepeatBehavior = [Windows.Media.Animation.RepeatBehavior]::Forever
+        $ui.Pulse.BeginAnimation([Windows.UIElement]::OpacityProperty, $fade)
+    } else {
+        foreach ($p in $scaleP) { $pulseScale.BeginAnimation($p, $null) }
+        $ui.Pulse.BeginAnimation([Windows.UIElement]::OpacityProperty, $null)
+        $ui.Pulse.Opacity = 0
+    }
 }
 
 function Show-Error([string]$msg) {
@@ -554,14 +716,18 @@ function Show-Update {
 }
 
 function Apply-Language {
-    $ui.Root.FlowDirection = if ($script:Lang -eq 'ar') { 'RightToLeft' } else { 'LeftToRight' }
+    $ar = $script:Lang -eq 'ar'
+    $ui.Root.FlowDirection = if ($ar) { 'RightToLeft' } else { 'LeftToRight' }
+    $window.FontFamily     = if ($ar) { $ArabicFont } else { $LatinFont }
     $window.Title          = L 'WindowTitle'
     $ui.TxtAppName.Text    = L 'AppName'
     $ui.TxtLang.Text       = L 'OtherLang'
+    $ui.TxtLang.FontFamily = if ($ar) { $LatinFont } else { $ArabicFont }   # the button shows the other language
     $ui.BtnLang.ToolTip    = L 'LangTip'
     $ui.TxtAllow.Text      = L 'Allow'
     $ui.TxtBlock.Text      = L 'Block'
     $ui.TxtRangesHdr.Text  = L 'RangesHeader'
+    $ui.TxtSynced.Text     = L 'Synced'
     $ui.LblOut.Text        = L 'Outbound'
     $ui.LblIn.Text         = L 'Inbound'
     $ui.SyncNote.Text      = L 'SyncNote'
@@ -573,24 +739,28 @@ function Refresh-UI {
     try { $s = Get-BlockState } catch { Show-Error ((L 'ErrRead') -f $_.Exception.Message); return }
     $script:lastStatus = $s.Status
     $st = $States[$s.Status]
+    $color = [Windows.Media.Color][Windows.Media.ColorConverter]::ConvertFromString($st.Color)
 
-    $accent.BeginAnimation([Windows.Media.SolidColorBrush]::ColorProperty,
-        (New-Anim ColorAnimation ([Windows.Media.Color][Windows.Media.ColorConverter]::ConvertFromString($st.Color))))
+    $accent.BeginAnimation([Windows.Media.SolidColorBrush]::ColorProperty, (New-Anim ColorAnimation $color))
+    $ui.ThumbGlow.Color  = $color
     $ui.Glyph.Text       = $st.Glyph
+    $ui.BadgeGlyph.Text  = $st.Glyph
     $ui.StatusTitle.Text = L "$($s.Status)Title"
     $ui.StatusSub.Text   = L "$($s.Status)Sub"
     Move-Thumb $s.Status
+    Set-Pulse ($s.Status -eq 'On')
 
     $dark = New-Brush '#0A0E17'; $dim = New-Brush '#8A96AD'
     $ui.BtnBlock.Foreground = if ($s.Status -eq 'On')  { $dark } else { $dim }
     $ui.BtnAllow.Foreground = if ($s.Status -eq 'Off') { $dark } else { $dim }
 
-    $onDot = New-Brush $States.On.Color; $offDot = New-Brush '#3A4560'
+    $onDot = New-Brush $States.On.Color; $offDot = New-Brush '#3B9BFF'
     $ui.DotOut.Fill = if ($s.Outbound) { $onDot } else { $offDot }
     $ui.DotIn.Fill  = if ($s.Inbound)  { $onDot } else { $offDot }
     $ui.TxtOut.Text = if ($s.Outbound) { L 'RuleOn' } else { L 'RuleOff' }
     $ui.TxtIn.Text  = if ($s.Inbound)  { L 'RuleOn' } else { L 'RuleOff' }
     $ui.SyncNote.Visibility = if ($s.Saved) { 'Collapsed' } else { 'Visible' }
+    $ui.Synced.Visibility   = if ($script:synced) { 'Visible' } else { 'Collapsed' }
 
     $warn = Get-FirewallWarning
     $ui.WarnText.Text = $warn
@@ -632,6 +802,8 @@ function Apply-Remote($data) {
         }
     } catch { }
     if (-not (Test-Cidrs $data.ranges)) { return }
+    $script:synced = $true
+    $ui.Synced.Visibility = 'Visible'
     if ((Get-RangesKey $data.ranges) -eq (Get-RangesKey $Cidrs)) { return }
     $script:Cidrs = @($data.ranges)
     try { $data | ConvertTo-Json | Set-Content -LiteralPath $RangesFile -Encoding UTF8 } catch { }
@@ -677,12 +849,15 @@ $ui.TitleBar.Add_MouseLeftButtonDown({ $window.DragMove() })
 $ui.Thumb.Add_SizeChanged({ Move-Thumb $script:lastStatus })
 $window.Add_Activated({ if (-not $script:busy) { Refresh-UI } })   # picks up changes made outside the app
 
-# After the UAC prompt the window can open minimized or behind other apps - bring it forward.
+# After the UAC prompt the window can open minimized or behind other apps - bring it forward,
+# then fade and slide the card in.
 $window.Add_Loaded({
     $window.WindowState = 'Normal'
     $window.Topmost = $true
     $window.Activate()
     $window.Topmost = $false
+    $ui.Root.BeginAnimation([Windows.UIElement]::OpacityProperty, (New-Anim DoubleAnimation 1.0 320))
+    $ui.RootShift.BeginAnimation([Windows.Media.TranslateTransform]::YProperty, (New-Anim DoubleAnimation 0.0 380))
     Start-RemoteCheck
 })
 Apply-Language

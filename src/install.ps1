@@ -69,6 +69,7 @@
         Set-ItemProperty -Path $key -Name NoRepair -Value 1 -Type DWord
 
         Write-Host "  Done. $AppName is on your Desktop and in the Start menu." -ForegroundColor Green
+        Write-Host '  You can delete the downloaded zip and extracted folder now.'
         Write-Host '  Starting it now - click Yes when Windows asks for permission.'
         Write-Host ''
         Start-Process $PsExe $appArgs

@@ -33,7 +33,6 @@ irm https://raw.githubusercontent.com/bassam-2023/rl-me-blocker/main/src/install
 - **Switch before you queue.** The server is chosen when the match starts, so switching mid-match does nothing.
 - The Desktop icon changes to show the current state: an orange lock means blocked, a blue open lock means allowed.
 - The **ع / EN** button in the title bar switches between Arabic and English.
-- **Arabic font:** if the free [Thmanyah Sans (ثمانية)](https://font.thmanyah.com) font is installed, the Arabic interface uses it. Otherwise it uses Segoe UI. Its license doesn't allow bundling the font, so download it from the official site.
 
 The block stays on until you switch it off, including after a restart.
 
@@ -64,3 +63,4 @@ Windows 10 or 11. Nothing else to install, since it uses the PowerShell that com
 ---
 
 Not affiliated with Psyonix or Epic Games. Rocket League is a trademark of Psyonix LLC.
+Arabic text uses the [Tajawal](https://fonts.google.com/specimen/Tajawal) font by Boutros International, under the [SIL Open Font License](src/fonts/OFL.txt).

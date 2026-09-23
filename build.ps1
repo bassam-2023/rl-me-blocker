@@ -33,6 +33,7 @@ Copy-Item (Join-Path $root 'Install.cmd'), (Join-Path $root 'Uninstall.cmd'), (J
 Copy-Item (Join-Path $root 'docs') -Destination $staging -Recurse
 Copy-Item (Join-Path $root 'src\RL-ME-Blocker.ps1'), (Join-Path $root 'src\install.ps1'), (Join-Path $root 'src\uninstall.ps1') `
           -Destination (Join-Path $staging 'src')
+Copy-Item (Join-Path $root 'src\fonts') -Destination (Join-Path $staging 'src') -Recurse
 
 $zip = Join-Path $dist "$name.zip"
 Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue

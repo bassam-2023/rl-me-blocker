@@ -515,27 +515,14 @@ $script:synced = $false
 $script:pulseOn = $null
 
 # ---- Fonts ----------------------------------------------------------------
-# Arabic uses the Thmanyah Sans typeface when it's installed (its license doesn't allow
-# shipping the files, so users get it from https://font.thmanyah.com). Fonts installed
-# "for this user only" live outside C:\Windows\Fonts, so the family is loaded from the
-# folder that holds it.
-$LatinFont = New-Object Windows.Media.FontFamily 'Segoe UI Variable Display, Segoe UI'
-
-function Find-ArabicFont {
-    foreach ($dir in (Join-Path $env:WINDIR 'Fonts'), (Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\Fonts')) {
-        $file = Get-ChildItem -LiteralPath $dir -File -ErrorAction SilentlyContinue |
-                Where-Object { $_.Name -match 'thmanyah' -and $_.Name -match 'sans' -and $_.Extension -in '.otf', '.ttf' } |
-                Select-Object -First 1
-        if (-not $file) { continue }
-        try {
-            $name = @(@([Windows.Media.Fonts]::GetFontFamilies($file.FullName))[0].FamilyNames.Values)[0]
-            if (-not $name) { continue }
-            return New-Object Windows.Media.FontFamily ([Uri]('file:///' + ($dir -replace '\\', '/') + '/')), "./#$name"
-        } catch { }
-    }
-    New-Object Windows.Media.FontFamily 'Segoe UI'
+# Arabic uses Tajawal (SIL Open Font License), shipped in the fonts folder next to the
+# script and loaded straight from there, so nothing gets installed into Windows.
+$LatinFont  = New-Object Windows.Media.FontFamily 'Segoe UI Variable Display, Segoe UI'
+$ArabicFont = New-Object Windows.Media.FontFamily 'Segoe UI'
+$fontDir    = Join-Path $PSScriptRoot 'fonts'
+if (Test-Path -LiteralPath (Join-Path $fontDir 'Tajawal-Regular.ttf')) {
+    $ArabicFont = New-Object Windows.Media.FontFamily ([Uri]('file:///' + ($fontDir -replace '\\', '/') + '/')), './#Tajawal'
 }
-$ArabicFont = Find-ArabicFont
 
 # ---- Status icons -------------------------------------------------------
 # The taskbar icon and the shortcut icons follow the status. Each state is drawn

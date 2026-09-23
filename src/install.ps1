@@ -31,6 +31,9 @@
         }
         foreach ($f in $Files) {
             $dest = Join-Path $InstallDir $f
+            # A running app keeps its font files open, and a font file never changes under
+            # the same name, so ones already installed are left alone
+            if ($f -like 'fonts/*' -and (Test-Path -LiteralPath $dest)) { continue }
             if ($local) { Copy-Item -LiteralPath (Join-Path $local $f) -Destination $dest -Force }
             else        { Invoke-WebRequest -UseBasicParsing -Uri "$RawBase/$f" -OutFile $dest }
             Unblock-File -LiteralPath $dest   # drop the "downloaded from the internet" mark

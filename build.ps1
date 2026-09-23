@@ -29,7 +29,7 @@ Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
 [void](New-Item -ItemType Directory -Path (Join-Path $staging 'src') -Force)
 
 Copy-Item (Join-Path $root 'Install.cmd'), (Join-Path $root 'Uninstall.cmd'), (Join-Path $root 'README.md'),
-          (Join-Path $root 'README.ar.md'), (Join-Path $root 'LICENSE') -Destination $staging
+          (Join-Path $root 'README.en.md'), (Join-Path $root 'LICENSE') -Destination $staging
 Copy-Item (Join-Path $root 'docs') -Destination $staging -Recurse
 Copy-Item (Join-Path $root 'src\RL-ME-Blocker.ps1'), (Join-Path $root 'src\install.ps1'), (Join-Path $root 'src\uninstall.ps1') `
           -Destination (Join-Path $staging 'src')

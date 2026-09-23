@@ -1,0 +1,5 @@
+# Windows scripts must keep CRLF line endings; .cmd files misbehave with LF
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+*.png  binary
+*.ico  binary

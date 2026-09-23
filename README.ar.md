@@ -38,7 +38,6 @@ irm https://raw.githubusercontent.com/bassam-2023/rl-me-blocker/main/src/install
 - **بدّل قبل البحث عن مباراة.** السيرفر يُحدَّد عند بداية المباراة، لذلك التبديل أثناء المباراة لا يغيّر شيئاً.
 - أيقونة سطح المكتب تتغير حسب الحالة: قفل برتقالي يعني محظور، وقفل أزرق مفتوح يعني مسموح.
 - زر **ع / EN** في أعلى النافذة يبدّل بين العربية والإنجليزية.
-- **الخط العربي:** إذا كان خط [ثمانية (Thmanyah Sans)](https://font.thmanyah.com) المجاني مثبّتاً على جهازك، تستخدمه الواجهة العربية تلقائياً، وإلا فتستخدم Segoe UI. رخصة الخط لا تسمح بإرفاقه مع البرنامج، لذلك حمّله من موقعه الرسمي.
 
 الحظر يبقى مفعّلاً حتى توقفه بنفسك، حتى بعد إعادة تشغيل الجهاز.
 
@@ -69,5 +68,6 @@ irm https://raw.githubusercontent.com/bassam-2023/rl-me-blocker/main/src/install
 ---
 
 هذا المشروع غير تابع لـ Psyonix أو Epic Games. Rocket League علامة تجارية لـ Psyonix LLC.
+النصوص العربية تستخدم خط [تجوال (Tajawal)](https://fonts.google.com/specimen/Tajawal) من Boutros International، برخصة [SIL Open Font License](src/fonts/OFL.txt).
 
 </div>

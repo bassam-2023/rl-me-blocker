@@ -12,7 +12,8 @@
     $AppName    = 'RL ME Blocker'
     $RawBase    = 'https://raw.githubusercontent.com/bassam-2023/rl-me-blocker/main/src'
     $InstallDir = Join-Path $env:LOCALAPPDATA 'RL-ME-Blocker'
-    $Files      = 'RL-ME-Blocker.ps1', 'uninstall.ps1'
+    $Files      = 'RL-ME-Blocker.ps1', 'uninstall.ps1', 'fonts/OFL.txt', 'fonts/Tajawal-Regular.ttf',
+                  'fonts/Tajawal-Medium.ttf', 'fonts/Tajawal-Bold.ttf', 'fonts/Tajawal-Black.ttf'
     $PsExe      = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 
     Add-Type -AssemblyName PresentationFramework
@@ -20,7 +21,7 @@
     try {
         Write-Host ''
         Write-Host "  Installing $AppName..." -ForegroundColor Cyan
-        [void](New-Item -ItemType Directory -Path $InstallDir -Force)
+        [void](New-Item -ItemType Directory -Path (Join-Path $InstallDir 'fonts') -Force)
 
         # From the zip the files sit next to this script; via "irm | iex" there is no script
         # folder, so they're downloaded from GitHub instead.

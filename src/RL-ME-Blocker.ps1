@@ -5,9 +5,9 @@
 #  https://github.com/bassam-2023/rl-me-blocker
 # =====================================================================
 
-$AppVersion = '1.1.1'
-$RepoUrl    = 'https://github.com/bassam-2023/rl-me-blocker'
-$RemoteUrl  = 'https://raw.githubusercontent.com/bassam-2023/rl-me-blocker/main/ranges.json'
+$AppVersion = '1.2.0'
+$RawRoot    = 'https://raw.githubusercontent.com/bassam-2023/rl-me-blocker'
+$RemoteUrl  = "$RawRoot/main/ranges.json"
 
 # ---- Self-elevate to Administrator (and make sure we're STA for WPF) ----
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -114,7 +114,9 @@ $Strings = @{
         ErrApply    = "Windows Firewall didn't apply the change. Try again, or restart the app."
         WarnThirdParty = '{0} is managing your firewall, so this block may not work. Use its own settings, or turn Windows Firewall back on.'
         WarnOff     = 'Windows Firewall is turned off for this network, so blocking has no effect. Turn it on in Windows Security > Firewall.'
-        Update      = 'Update available: v{0} - click to download'
+        Update      = 'Update to v{0} - click to install'
+        Updating    = 'Downloading the update...'
+        ErrUpdate   = "Couldn't update: {0}"
         Synced      = 'Up to date'
     }
     ar = @{
@@ -139,7 +141,9 @@ $Strings = @{
         ErrApply    = 'لم يطبّق جدار حماية ويندوز التغيير. حاول مرة أخرى أو أعد تشغيل البرنامج.'
         WarnThirdParty = 'برنامج {0} يتحكم في الجدار الناري، لذلك قد لا يعمل الحظر. استخدم إعداداته، أو أعد تشغيل جدار حماية ويندوز.'
         WarnOff     = 'جدار حماية ويندوز متوقف على هذه الشبكة، لذلك الحظر لن يعمل. شغّله من أمان Windows > جدار الحماية.'
-        Update      = 'يتوفر تحديث: v{0} - اضغط للتحميل'
+        Update      = 'يتوفر تحديث v{0} - اضغط للتحديث'
+        Updating    = 'جارٍ تحميل التحديث...'
+        ErrUpdate   = 'تعذّر التحديث: {0}'
         Synced      = 'محدّثة'
     }
 }
@@ -882,6 +886,35 @@ function Start-RemoteCheck {
     $script:remoteTimer.Start()
 }
 
+# One-click update: fetch the installer of the exact release tag, hand over to it and close.
+# The installer downloads and checks every file before replacing anything, then reopens the
+# app. Running as Administrator already, so no second UAC prompt.
+function Start-SelfUpdate {
+    if (-not $script:updateVersion -or $script:busy) { return }
+    $script:busy = $true
+    $ui.TxtUpdate.Text = L 'Updating'
+    $window.Cursor = [Windows.Input.Cursors]::Wait
+    $window.Dispatcher.Invoke([Action]{}, [Windows.Threading.DispatcherPriority]::Background)
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+        $tag       = "v$($script:updateVersion)"
+        $installer = Join-Path $env:TEMP "rl-me-blocker-install-$tag.ps1"
+        Invoke-WebRequest -UseBasicParsing -Uri "$RawRoot/$tag/src/install.ps1" -OutFile $installer -ErrorAction Stop
+        $errors = $null
+        [void][Management.Automation.Language.Parser]::ParseFile($installer, [ref]$null, [ref]$errors)
+        if ($errors.Count) { throw $errors[0].Message }
+        Write-StateLog "updating $AppVersion -> $($script:updateVersion)"
+        $env:RLME_REF = $tag   # inherited by the installer: install exactly this release
+        Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$installer`""
+        $window.Close()
+    } catch {
+        $window.Cursor = $null
+        $script:busy = $false
+        Show-Error ((L 'ErrUpdate') -f $_.Exception.Message)
+        Show-Update
+    }
+}
+
 $ui.BtnAllow.Add_Click({ Invoke-Toggle $false })
 $ui.BtnBlock.Add_Click({ Invoke-Toggle $true })
 $ui.BtnClose.Add_Click({ $window.Close() })
@@ -892,8 +925,7 @@ $ui.BtnLang.Add_Click({
     Apply-Language
     if (-not $script:busy) { Refresh-UI }
 })
-# The browser is opened through Explorer so it doesn't run as Administrator
-$ui.TxtUpdate.Add_MouseLeftButtonUp({ Start-Process explorer.exe "$RepoUrl/releases/latest" })
+$ui.TxtUpdate.Add_MouseLeftButtonUp({ Start-SelfUpdate })
 $ui.TitleBar.Add_MouseLeftButtonDown({ $window.DragMove() })
 $ui.Thumb.Add_SizeChanged({ Move-Thumb $script:lastStatus })
 $window.Add_Activated({ if (-not $script:busy) { Refresh-UI } })   # picks up changes made outside the app

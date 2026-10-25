@@ -20,7 +20,9 @@ if (@([IO.File]::ReadAllBytes((Join-Path $root 'src\install.ps1')) | Where-Objec
     throw 'src\install.ps1 must be pure ASCII'
 }
 $remote = Get-Content -LiteralPath (Join-Path $root 'ranges.json') -Raw | ConvertFrom-Json
-if ($remote.latestVersion -ne $version) { Write-Warning "ranges.json latestVersion is $($remote.latestVersion), app is $version" }
+if ($remote.latestVersion -ne $version) {
+    Write-Host "Note: ranges.json latestVersion is $($remote.latestVersion). Bump it to $version only after the release is published (docs\RELEASING.md)."
+}
 
 $name    = "RL-ME-Blocker-v$version"
 $dist    = Join-Path $root 'dist'
@@ -30,7 +32,8 @@ Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
 
 Copy-Item (Join-Path $root 'Install.cmd'), (Join-Path $root 'Uninstall.cmd'), (Join-Path $root 'README.md'),
           (Join-Path $root 'README.en.md'), (Join-Path $root 'LICENSE') -Destination $staging
-Copy-Item (Join-Path $root 'docs') -Destination $staging -Recurse
+[void](New-Item -ItemType Directory -Path (Join-Path $staging 'docs') -Force)
+Copy-Item (Join-Path $root 'docs\*.png') -Destination (Join-Path $staging 'docs')   # README screenshots only
 Copy-Item (Join-Path $root 'src\RL-ME-Blocker.ps1'), (Join-Path $root 'src\install.ps1'), (Join-Path $root 'src\uninstall.ps1') `
           -Destination (Join-Path $staging 'src')
 Copy-Item (Join-Path $root 'src\fonts') -Destination (Join-Path $staging 'src') -Recurse

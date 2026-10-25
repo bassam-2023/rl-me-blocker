@@ -10,7 +10,10 @@
 & {
     $ErrorActionPreference = 'Stop'
     $AppName    = 'RL ME Blocker'
-    $RawBase    = 'https://raw.githubusercontent.com/bassam-2023/rl-me-blocker/main/src'
+    # The app's in-place updater sets RLME_REF to the release tag, so an update installs
+    # exactly that release; a fresh "irm | iex" install takes main.
+    $Ref        = if ($env:RLME_REF) { $env:RLME_REF } else { 'main' }
+    $RawBase    = "https://raw.githubusercontent.com/bassam-2023/rl-me-blocker/$Ref/src"
     $InstallDir = Join-Path $env:LOCALAPPDATA 'RL-ME-Blocker'
     $Files      = 'RL-ME-Blocker.ps1', 'uninstall.ps1', 'fonts/OFL.txt', 'fonts/Tajawal-Regular.ttf',
                   'fonts/Tajawal-Medium.ttf', 'fonts/Tajawal-Bold.ttf', 'fonts/Tajawal-Black.ttf'
@@ -23,21 +26,34 @@
         Write-Host "  Installing $AppName..." -ForegroundColor Cyan
         [void](New-Item -ItemType Directory -Path (Join-Path $InstallDir 'fonts') -Force)
 
-        # From the zip the files sit next to this script; via "irm | iex" there is no script
-        # folder, so they're downloaded from GitHub instead.
-        $local = if ($PSScriptRoot -and (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'RL-ME-Blocker.ps1'))) { $PSScriptRoot }
-        if (-not $local) {
+        # From the zip the files sit next to this script. Otherwise ("irm | iex", or an update
+        # started from the app) they're downloaded from GitHub into a temporary folder first and
+        # checked, so a failed or partial download never leaves a half-replaced install.
+        $downloaded = $null
+        $source = if ($PSScriptRoot -and (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'RL-ME-Blocker.ps1'))) { $PSScriptRoot }
+        if (-not $source) {
             [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+            $source = Join-Path $env:TEMP ('rl-me-blocker-' + [Guid]::NewGuid().ToString('N'))
+            $downloaded = $source
+            [void](New-Item -ItemType Directory -Path (Join-Path $source 'fonts') -Force)
+            Write-Host "  Downloading from GitHub ($Ref)..."
+            foreach ($f in $Files) { Invoke-WebRequest -UseBasicParsing -Uri "$RawBase/$f" -OutFile (Join-Path $source $f) }
+            foreach ($f in $Files -like '*.ps1') {
+                $errors = $null
+                [void][Management.Automation.Language.Parser]::ParseFile((Join-Path $source $f), [ref]$null, [ref]$errors)
+                if ($errors.Count) { throw "Downloaded $f is damaged ($($errors[0].Message)). Nothing was changed." }
+            }
         }
+
         foreach ($f in $Files) {
             $dest = Join-Path $InstallDir $f
             # A running app keeps its font files open, and a font file never changes under
             # the same name, so ones already installed are left alone
             if ($f -like 'fonts/*' -and (Test-Path -LiteralPath $dest)) { continue }
-            if ($local) { Copy-Item -LiteralPath (Join-Path $local $f) -Destination $dest -Force }
-            else        { Invoke-WebRequest -UseBasicParsing -Uri "$RawBase/$f" -OutFile $dest }
+            Copy-Item -LiteralPath (Join-Path $source $f) -Destination $dest -Force
             Unblock-File -LiteralPath $dest   # drop the "downloaded from the internet" mark
         }
+        if ($downloaded) { Remove-Item -LiteralPath $downloaded -Recurse -Force -ErrorAction SilentlyContinue }
 
         $app     = Join-Path $InstallDir 'RL-ME-Blocker.ps1'
         $appArgs = "-NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File `"$app`""
@@ -78,6 +94,7 @@
         Write-Host ''
         Start-Process $PsExe $appArgs
     } catch {
+        if ($downloaded) { Remove-Item -LiteralPath $downloaded -Recurse -Force -ErrorAction SilentlyContinue }
         $failedAr = [regex]::Unescape('\u0641\u0634\u0644 \u0627\u0644\u062a\u062b\u0628\u064a\u062a:')   # "Installation failed:" in Arabic
         [void][Windows.MessageBox]::Show(
             "Installation failed:`n$($_.Exception.Message)`n`n$failedAr`n$($_.Exception.Message)",

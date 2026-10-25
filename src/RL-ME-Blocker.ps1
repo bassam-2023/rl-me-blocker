@@ -5,7 +5,7 @@
 #  https://github.com/bassam-2023/rl-me-blocker
 # =====================================================================
 
-$AppVersion = '1.1.0'
+$AppVersion = '1.1.1'
 $RepoUrl    = 'https://github.com/bassam-2023/rl-me-blocker'
 $RemoteUrl  = 'https://raw.githubusercontent.com/bassam-2023/rl-me-blocker/main/ranges.json'
 
@@ -48,6 +48,7 @@ $ShortcutDirs = @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFol
 $AppScript    = $PSCommandPath
 $RangesFile   = Join-Path $PSScriptRoot 'ranges.json'     # last list downloaded from GitHub
 $SettingsFile = Join-Path $PSScriptRoot 'settings.json'   # remembered language
+$StateLog     = Join-Path $PSScriptRoot 'state.log'       # what the app saw and did, for troubleshooting
 
 function Read-JsonFile([string]$path) {
     try {
@@ -106,7 +107,7 @@ $Strings = @{
         RangesHeader = 'ME6 SERVER RANGES'
         Outbound    = 'Outbound'; Inbound    = 'Inbound'
         RuleOn      = 'Blocking'; RuleOff    = 'Open'
-        SyncNote    = "Windows didn't save this to disk, so it may reset after a restart. If it does, just switch it again."
+        SyncNote    = "Windows isn't applying your saved choice yet. Switch it again, or restart the app."
         Hint        = 'Switch before you queue - the server is set at match start.'
         ErrPrepare  = "Couldn't prepare firewall rules: {0}"
         ErrRead     = "Couldn't read firewall state: {0}"
@@ -131,7 +132,7 @@ $Strings = @{
         RangesHeader = 'نطاقات سيرفرات ME6'
         Outbound    = 'الصادر'; Inbound    = 'الوارد'
         RuleOn      = 'محظور';  RuleOff    = 'مفتوح'
-        SyncNote    = 'لم يحفظ ويندوز هذا التغيير، لذلك قد يرجع بعد إعادة تشغيل الجهاز. إذا حصل ذلك، بدّل مرة أخرى.'
+        SyncNote    = 'ويندوز ما طبّق اختيارك المحفوظ للحين. بدّل مرة ثانية، أو أعد فتح البرنامج.'
         Hint        = 'بدّل قبل البحث عن مباراة - السيرفر يُحدَّد عند بداية المباراة.'
         ErrPrepare  = 'تعذّر تجهيز قواعد الجدار الناري: {0}'
         ErrRead     = 'تعذّرت قراءة حالة الجدار الناري: {0}'
@@ -172,21 +173,49 @@ function Ensure-Rules {
     }
 }
 
-function Get-BlockState {
-    $rules = @(Get-NetFirewallRule -Group $Group -PolicyStore ActiveStore -ErrorAction SilentlyContinue)
+function Read-RuleState([string]$store) {
+    $rules = @(Get-NetFirewallRule -Group $Group -PolicyStore $store -ErrorAction SilentlyContinue)
     $on    = @($rules | Where-Object { $_.Enabled -eq 'True' })
-    $saved = @(Get-NetFirewallRule -Group $Group -PolicyStore PersistentStore -ErrorAction SilentlyContinue |
-               Where-Object { $_.Enabled -eq 'True' })
-    $status = if ($rules.Count -eq 0) { 'Missing' }
-              elseif ($on.Count -eq $rules.Count) { 'On' }
-              elseif ($on.Count -eq 0) { 'Off' }
-              else { 'Partial' }
     [pscustomobject]@{
-        Status   = $status
+        Status   = if ($rules.Count -eq 0) { 'Missing' }
+                   elseif ($on.Count -eq $rules.Count) { 'On' }
+                   elseif ($on.Count -eq 0) { 'Off' }
+                   else { 'Partial' }
         Inbound  = @($on | Where-Object { $_.Direction -eq 'Inbound' }).Count -gt 0
         Outbound = @($on | Where-Object { $_.Direction -eq 'Outbound' }).Count -gt 0
-        Saved    = $saved.Count -eq $on.Count   # $false: Windows didn't write it to disk, may reset on reboot
     }
+}
+
+# The firewall service copies saved changes into the enforced rules in the background, and
+# right after sign-in or a network change it can lag behind. Reading only the enforced copy
+# at such a moment once made the app show ALLOWED while blocking was on, so when the two
+# disagree we wait for them to line up before trusting either.
+function Get-BlockState {
+    $saved = Read-RuleState PersistentStore
+    $live  = Read-RuleState ActiveStore
+    for ($i = 0; $i -lt 6 -and $live.Status -ne $saved.Status; $i++) {
+        Start-Sleep -Milliseconds 250
+        $live = Read-RuleState ActiveStore
+    }
+    [pscustomobject]@{
+        Status      = $live.Status
+        Inbound     = $live.Inbound
+        Outbound    = $live.Outbound
+        SavedStatus = $saved.Status
+        Saved       = $live.Status -eq $saved.Status   # $false: what Windows enforces isn't what was chosen
+    }
+}
+
+# Still out of step after waiting: re-apply the saved choice so the firewall service
+# reloads it. The saved copy is what the user last picked (and what the icon shows).
+function Repair-BlockState($s) {
+    if ($s.Saved -or $s.SavedStatus -notin 'On', 'Off') { return $s }
+    Write-StateLog "mismatch: saved=$($s.SavedStatus) enforced=$($s.Status) - re-applying saved"
+    $flag = if ($s.SavedStatus -eq 'On') { 'True' } else { 'False' }
+    Set-NetFirewallRule -Group $Group -PolicyStore PersistentStore -Enabled $flag -ErrorAction Stop
+    $after = Get-BlockState
+    Write-StateLog "after re-apply: enforced=$($after.Status)"
+    $after
 }
 
 function Set-BlockState([bool]$On) {
@@ -194,7 +223,18 @@ function Set-BlockState([bool]$On) {
     $flag = if ($On) { 'True' } else { 'False' }
     $want = if ($On) { 'On' } else { 'Off' }
     Set-NetFirewallRule -Group $Group -PolicyStore PersistentStore -Enabled $flag -ErrorAction Stop
-    if ((Get-BlockState).Status -ne $want) { throw (L 'ErrApply') }
+    $now = Get-BlockState   # waits for the enforced copy to catch up
+    Write-StateLog "switched to $want, enforced=$($now.Status)"
+    if ($now.Status -ne $want) { throw (L 'ErrApply') }
+}
+
+# Small rolling log next to the script, so a state mix-up can be traced after the fact
+function Write-StateLog([string]$msg) {
+    try {
+        $lines = @(if (Test-Path -LiteralPath $StateLog) { Get-Content -LiteralPath $StateLog -Tail 299 -Encoding UTF8 })
+        $lines += '{0:yyyy-MM-dd HH:mm:ss}  {1}' -f (Get-Date), $msg
+        Set-Content -LiteralPath $StateLog -Value $lines -Encoding UTF8
+    } catch { }
 }
 
 # The rules only matter if Windows Firewall is the one enforcing them on the current network.
@@ -513,6 +553,7 @@ $script:busy = $false
 $script:updateVersion = $null
 $script:synced = $false
 $script:pulseOn = $null
+$script:openLogged = $false
 
 # ---- Fonts ----------------------------------------------------------------
 # Arabic uses Tajawal (SIL Open Font License), shipped in the fonts folder next to the
@@ -604,12 +645,26 @@ function Update-ShortcutIcon([string]$status, [string[]]$SearchDirs = $ShortcutD
                 if ($lnk.IconLocation -ne $icon) {
                     $lnk.IconLocation = $icon
                     $lnk.Save()
-                    [RLBlockME.Native]::SHChangeNotify(0x2000, 0x5, $f.FullName, [IntPtr]::Zero)   # SHCNE_UPDATEITEM, SHCNF_PATHW
+                    # SHCNE_UPDATEITEM for the shortcut, then SHCNE_UPDATEDIR for its folder; with
+                    # SHCNF_PATHW | SHCNF_FLUSH so Explorer repaints now instead of keeping the old icon
+                    [RLBlockME.Native]::SHChangeNotify(0x2000, 0x1005, $f.FullName, [IntPtr]::Zero)
+                    [RLBlockME.Native]::SHChangeNotify(0x1000, 0x1005, $dir, [IntPtr]::Zero)
                 }
             } catch { }
         }
     }
     $script:shortcutStatus = $status
+}
+
+# Which state the Desktop shortcut currently shows (for the troubleshooting log)
+function Get-ShortcutShownStatus {
+    try {
+        $lnk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'RL ME Blocker.lnk'
+        if (-not (Test-Path -LiteralPath $lnk)) { return 'none' }
+        $icon = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk).IconLocation
+        if ($icon -match 'rl-me-(\w+)-v\d+\.ico') { return $Matches[1] }
+        'default'
+    } catch { 'unknown' }
 }
 
 # One shared accent brush, animated between state colors
@@ -723,7 +778,14 @@ function Apply-Language {
 }
 
 function Refresh-UI {
-    try { $s = Get-BlockState } catch { Show-Error ((L 'ErrRead') -f $_.Exception.Message); return }
+    try {
+        $s = Get-BlockState
+        if (-not $script:openLogged) {
+            Write-StateLog "opened: enforced=$($s.Status) saved=$($s.SavedStatus) icon=$(Get-ShortcutShownStatus)"
+            $script:openLogged = $true
+        }
+        if (-not $s.Saved) { $s = Repair-BlockState $s }
+    } catch { Show-Error ((L 'ErrRead') -f $_.Exception.Message); return }
     $script:lastStatus = $s.Status
     $st = $States[$s.Status]
     $color = [Windows.Media.Color][Windows.Media.ColorConverter]::ConvertFromString($st.Color)
